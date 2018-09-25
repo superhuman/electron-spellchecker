@@ -156,9 +156,13 @@ export default class ContextMenuBuilder {
     let copyLink = new MenuItem({
       label: isEmailAddress ? this.stringTable.copyMail() : this.stringTable.copyLinkUrl(),
       click: () => {
-        // Omit the mailto: portion of the link; we just want the address
-        clipboard.writeText(isEmailAddress ?
-          menuInfo.linkText : menuInfo.linkURL);
+        let url = menuInfo.linkURL;
+        if (isEmailAddress) {
+          // Omit the mailto: portion of the link (and the potential query parameters);
+          // we just want the address
+          url = url.slice('mailto:'.length).split('?')[0];
+        }
+        clipboard.writeText(url);
       }
     });
 
