@@ -158,8 +158,9 @@ export default class ContextMenuBuilder {
       click: () => {
         let url = menuInfo.linkURL;
         if (isEmailAddress) {
-          // Omit the mailto: portion of the link; we just want the address
-          url = url.slice('mailto:'.length);
+          // Omit the mailto: portion of the link (and the potential query parameters);
+          // we just want the address
+          url = url.slice('mailto:'.length).split('?')[0];
         }
         clipboard.writeText(url);
       }
