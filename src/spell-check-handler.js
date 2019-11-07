@@ -1,37 +1,37 @@
-import {spawn} from 'spawn-rx';
-import {requireTaskPool} from 'electron-remote';
-import LRU from 'lru-cache';
+const {spawn} = require('spawn-rx');
+const {requireTaskPool} = require('@aabuhijleh/electron-remote');
+const LRU = require('lru-cache');
 
-import {Subscription} from 'rxjs/Subscription';
-import {Observable} from 'rxjs/Observable';
-import {Subject} from 'rxjs/Subject';
-import SerialSubscription from 'rxjs-serial-subscription';
+const {Subscription} = require('rxjs/Subscription');
+const {Observable} = require('rxjs/Observable');
+const {Subject} = require('rxjs/Subject');
+const SerialSubscription = require('rxjs-serial-subscription').default;
 
-import 'rxjs/add/observable/defer';
-import 'rxjs/add/observable/empty';
-import 'rxjs/add/observable/fromEvent';
-import 'rxjs/add/observable/fromPromise';
-import 'rxjs/add/observable/of';
+require('rxjs/add/observable/defer');
+require('rxjs/add/observable/empty');
+require('rxjs/add/observable/fromEvent');
+require('rxjs/add/observable/fromPromise');
+require('rxjs/add/observable/of');
 
-import 'rxjs/add/operator/catch';
-import 'rxjs/add/operator/concat';
-import 'rxjs/add/operator/concatMap';
-import 'rxjs/add/operator/do';
-import 'rxjs/add/operator/filter';
-import 'rxjs/add/operator/mergeMap';
-import 'rxjs/add/operator/merge';
-import 'rxjs/add/operator/observeOn';
-import 'rxjs/add/operator/reduce';
-import 'rxjs/add/operator/startWith';
-import 'rxjs/add/operator/take';
-import 'rxjs/add/operator/takeUntil';
-import 'rxjs/add/operator/throttle';
-import 'rxjs/add/operator/toPromise';
+require('rxjs/add/operator/catch');
+require('rxjs/add/operator/concat');
+require('rxjs/add/operator/concatMap');
+require('rxjs/add/operator/do');
+require('rxjs/add/operator/filter');
+require('rxjs/add/operator/mergeMap');
+require('rxjs/add/operator/merge');
+require('rxjs/add/operator/observeOn');
+require('rxjs/add/operator/reduce');
+require('rxjs/add/operator/startWith');
+require('rxjs/add/operator/take');
+require('rxjs/add/operator/takeUntil');
+require('rxjs/add/operator/throttle');
+require('rxjs/add/operator/toPromise');
 
-import './custom-operators';
+require('./custom-operators');
 
-import DictionarySync from './dictionary-sync';
-import {normalizeLanguageCode} from './utility';
+const DictionarySync = require('./dictionary-sync');
+const {normalizeLanguageCode} = require('./utility');
 
 let Spellchecker;
 
@@ -104,7 +104,7 @@ function fromEventCapture(element, name) {
  * would be a great sample, or in the case of Slack, the existing channel messages
  * are used as the sample text.
  */
-export default class SpellCheckHandler {
+module.exports = class SpellCheckHandler {
   /**
    * Constructs a SpellCheckHandler
    *
@@ -127,9 +127,7 @@ export default class SpellCheckHandler {
     this.currentSpellcheckerChanged = new Subject();
     this.spellCheckInvoked = new Subject();
     this.spellingErrorOccurred = new Subject();
-    this.isMisspelledCache = new LRU({
-      max: 512, maxAge: 4 * 1000
-    });
+    this.isMisspelledCache = new LRU({ max: 5000 });
 
     this.scheduler = scheduler;
     this.shouldAutoCorrect = true;
@@ -143,10 +141,7 @@ export default class SpellCheckHandler {
       this.currentSpellcheckerLanguage = 'en-US';
 
       if (webFrame) {
-        webFrame.setSpellCheckProvider(
-          this.currentSpellcheckerLanguage,
-          this.shouldAutoCorrect,
-          { spellCheck: this.handleElectronSpellCheck.bind(this) });
+        this.setSpellCheckProvider(webFrame);
       }
       return;
     }
@@ -165,7 +160,7 @@ export default class SpellCheckHandler {
   set automaticallyIdentifyLanguages(value) {
     this._automaticallyIdentifyLanguages = !!value;
 
-    // Calling `setDictionary` on the macOS implementation of `@paulcbetts/spellchecker`
+    // Calling `setDictionary` on the macOS implementation of `@nornagon/spellchecker`
     // is the only way to set the `automaticallyIdentifyLanguages` property on the
     // native NSSpellchecker. Calling switchLanguage with a language will set it `false`,
     // while calling it with an empty language will set it to `true`
@@ -281,7 +276,7 @@ export default class SpellCheckHandler {
       .mergeMap(async (langWithoutLocale) => {
         d(`Auto-detected language as ${langWithoutLocale}`);
         let lang = await this.getLikelyLocaleForLanguage(langWithoutLocale);
-        if (lang !== this.currentSpellcheckerLanguage) await this.switchLanguage(lang);
+        if ( (lang !== this.currentSpellcheckerLanguage) || (!this.currentSpellchecker) ) await this.switchLanguage(lang);
 
         return lang;
       })
@@ -303,10 +298,7 @@ export default class SpellCheckHandler {
           if (prevSpellCheckLanguage === this.currentSpellcheckerLanguage) return;
 
           d('Actually installing spell check provider to Electron');
-          webFrame.setSpellCheckProvider(
-            this.currentSpellcheckerLanguage,
-            this.shouldAutoCorrect,
-            { spellCheck: this.handleElectronSpellCheck.bind(this) });
+          this.setSpellCheckProvider(webFrame);
 
           prevSpellCheckLanguage = this.currentSpellcheckerLanguage;
         }));
@@ -389,6 +381,8 @@ export default class SpellCheckHandler {
     let actualLang;
     let dict = null;
 
+    this.isMisspelledCache.reset();
+    
     // Set language on macOS
     if (isMac && this.currentSpellchecker) {
       d(`Setting current spellchecker to ${langCode}`);
@@ -397,8 +391,6 @@ export default class SpellCheckHandler {
     }
 
     // Set language on Linux & Windows (Hunspell)
-    this.isMisspelledCache.reset();
-
     try {
       const {dictionary, language} = await this.loadDictionaryForLanguageWithAlternatives(langCode);
       actualLang = language; dict = dictionary;
@@ -465,10 +457,30 @@ export default class SpellCheckHandler {
   }
 
   /**
-   *  The actual callout called by Electron to handle spellchecking
+   *  Sets the SpellCheckProvider on the given WebFrame. Handles API differences
+   *  in Electron.
+   *  @private
+   *  @param {*} webFrame
+   */
+  setSpellCheckProvider(webFrame) {
+    if (process.versions.electron >= '5.0.0') {
+      webFrame.setSpellCheckProvider(
+        this.currentSpellcheckerLanguage,
+        { spellCheck: this.handleElectronSpellCheck.bind(this) });
+    } else {
+      webFrame.setSpellCheckProvider(
+        this.currentSpellcheckerLanguage,
+        this.shouldAutoCorrect,
+        { spellCheck: this.handleElectron4SpellCheck.bind(this) });
+    }
+  }
+
+  /**
+   *  The actual callout called by Electron version 4 and below to handle
+   *  spellchecking
    *  @private
    */
-  handleElectronSpellCheck(text) {
+  handleElectron4SpellCheck(text) {
     if (!this.currentSpellchecker) return true;
 
     if (isMac) {
@@ -480,6 +492,29 @@ export default class SpellCheckHandler {
     let result = this.isMisspelled(text);
     if (result) this.spellingErrorOccurred.next(text);
     return !result;
+  }
+
+  /**
+   *  The actual callout called by Electron version 5 and above to handle 
+   *  spellchecking.
+   *  @private
+   */
+  handleElectronSpellCheck(words, callback) {
+    if (!this.currentSpellchecker) {
+      callback([]);
+      return;
+    }
+
+    let misspelled = words.filter(w => this.isMisspelled(w));
+
+    if (isMac) {
+      callback(misspelled);
+      return;
+    }
+
+    this.spellCheckInvoked.next(true);
+    misspelled.forEach(w => this.spellingErrorOccurred.next(w));
+    callback(misspelled);
   }
 
   /**
@@ -575,6 +610,7 @@ export default class SpellCheckHandler {
     if (!isMac) return;
     if (!this.currentSpellchecker) return;
 
+    this.isMisspelledCache.reset();
     this.currentSpellchecker.add(text);
   }
 
@@ -588,9 +624,9 @@ export default class SpellCheckHandler {
 
     if (process.platform === 'linux') {
       let locales = await spawn('locale', ['-a'])
-        .catch(() => Observable.of(null))
         .reduce((acc,x) => { acc.push(...x.split('\n')); return acc; }, [])
-        .toPromise();
+        .toPromise()
+        .catch(() => []);
 
       d(`Raw Locale list: ${JSON.stringify(locales)}`);
 
@@ -653,4 +689,4 @@ export default class SpellCheckHandler {
     d(`Result: ${JSON.stringify(ret)}`);
     return ret;
   }
-}
+};
