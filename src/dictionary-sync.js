@@ -1,16 +1,14 @@
-import path from 'path';
-import mkdirp from 'mkdirp';
+const path = require('path');
+const mkdirp = require('mkdirp');
+const { Observable } = require('rxjs/Observable');
 
-import {Observable} from 'rxjs/Observable';
+require('rxjs/add/observable/of');
+require('rxjs/add/operator/mergeMap');
+require('rxjs/add/operator/reduce');
+require('rxjs/add/operator/toPromise');
 
-import 'rxjs/add/observable/of';
-
-import 'rxjs/add/operator/mergeMap';
-import 'rxjs/add/operator/reduce';
-import 'rxjs/add/operator/toPromise';
-
-import {fs} from './promisify';
-import {normalizeLanguageCode} from './utility';
+const { fs } = require('./promisify');
+const { normalizeLanguageCode } = require('./utility');
 
 let getURLForHunspellDictionary;
 let d = require('debug')('electron-spellchecker:dictionary-sync');
@@ -20,13 +18,13 @@ const app = process.type === 'renderer' ?
   require('electron').app;
 
 const {downloadFileOrUrl} =
-  require('electron-remote').requireTaskPool(require.resolve('electron-remote/remote-ajax'));
+  require('@aabuhijleh/electron-remote').requireTaskPool(require.resolve('@aabuhijleh/electron-remote/remote-ajax'));
 
 /**
  * DictioanrySync handles downloading and saving Hunspell dictionaries. Pass it
  * to {{SpellCheckHandler}} to configure a custom cache directory.
  */
-export default class DictionarySync {
+module.exports = class DictionarySync {
   /**
    * Creates a DictionarySync
    *

@@ -1,5 +1,5 @@
-import {clipboard, nativeImage, remote, shell} from 'electron';
-import {truncateString, matchesWord} from './utility';
+const {clipboard, nativeImage, remote, shell} = require('electron');
+const {truncateString, matchesWord} = require('./utility');
 
 const {Menu, MenuItem} = remote;
 
@@ -27,7 +27,7 @@ const contextMenuStringTable = {
  * which we use to generate the menu. We also use the spell-check information to
  * generate suggestions.
  */
-export default class ContextMenuBuilder {
+module.exports = class ContextMenuBuilder {
   /**
    * Creates an instance of ContextMenuBuilder
    *
@@ -96,7 +96,7 @@ export default class ContextMenuBuilder {
   async showPopupMenu(contextInfo) {
     let menu = await this.buildMenuForElement(contextInfo);
     if (!menu) return;
-    menu.popup(remote.getCurrentWindow(), { async: true });
+    menu.popup({});
   }
 
   /**
