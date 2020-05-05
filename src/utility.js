@@ -11,11 +11,12 @@ const { parse } = require('bcp47');
  */
 function normalizeLanguageCode(langCode) {
   let result = parse(langCode.replace(/[_-]/g, '-'));
-  if (!result || !result.langtag.language || !result.langtag.region) {
+  if (!result || !result.langtag.language) {
     throw new Error(`${langCode} is not a valid language code`);
   }
+  let region = result.langtag.region ? '' : '-' + result.langtag.region.toUpperCase()
 
-  return `${result.langtag.language.language.toLowerCase()}-${result.langtag.region.toUpperCase()}`;
+  return `${result.langtag.language.language.toLowerCase()}${region}`;
 }
 
 /**

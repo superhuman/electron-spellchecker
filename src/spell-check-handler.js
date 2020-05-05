@@ -649,10 +649,6 @@ module.exports = class SpellCheckHandler {
       // NB: OS X will return lists that are half just a language, half
       // language + locale, like ['en', 'pt_BR', 'ko']
       localeList = this.currentSpellchecker.getAvailableDictionaries()
-      // ars is the language code for a form of arabic
-      // electron-spellchecker does not handle languages without a locale
-      // causing it to fail on this type of language
-        .filter(lang => lang !== 'ars')
         .map((x => {
           if (x.length === 2) return fallbackLocaleTable[x];
           return normalizeLanguageCode(x);
