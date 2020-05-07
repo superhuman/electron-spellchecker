@@ -14,7 +14,7 @@ function normalizeLanguageCode(langCode) {
   if (!result || !result.langtag.language) {
     throw new Error(`${langCode} is not a valid language code`);
   }
-  let region = result.langtag.region ? '' : '-' + result.langtag.region.toUpperCase()
+  let region = result.langtag.region ? ('-' + result.langtag.region.toUpperCase()) : ''
 
   return `${result.langtag.language.language.toLowerCase()}${region}`;
 }
