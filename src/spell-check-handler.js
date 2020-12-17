@@ -382,7 +382,7 @@ module.exports = class SpellCheckHandler {
     let dict = null;
 
     this.isMisspelledCache.reset();
-    
+
     // Set language on macOS
     if (isMac && this.currentSpellchecker) {
       d(`Setting current spellchecker to ${langCode}`);
@@ -463,7 +463,8 @@ module.exports = class SpellCheckHandler {
    *  @param {*} webFrame
    */
   setSpellCheckProvider(webFrame) {
-    if (process.versions.electron >= '5.0.0') {
+    let majorVersion = parseInt(process.versions.electron.split('.')[0])
+    if (majorVersion >= 5) {
       webFrame.setSpellCheckProvider(
         this.currentSpellcheckerLanguage,
         { spellCheck: this.handleElectronSpellCheck.bind(this) });
@@ -495,7 +496,7 @@ module.exports = class SpellCheckHandler {
   }
 
   /**
-   *  The actual callout called by Electron version 5 and above to handle 
+   *  The actual callout called by Electron version 5 and above to handle
    *  spellchecking.
    *  @private
    */
